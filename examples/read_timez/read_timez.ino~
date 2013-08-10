@@ -1,0 +1,129 @@
+#include <SD.h>
+const int chipSelect = 10;
+const int D1_PIN = 2;
+const int D2_PIN = 3;
+File myFile;
+
+void setup(){
+  pinMode(D1_PIN, OUTPUT);
+  pinMode(D2_PIN, OUTPUT);
+  Serial.begin(115200);
+  Serial.print("Initializing SD card...");
+  // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
+  // Note that even if it's not used as the CS pin, the hardware SS pin 
+  // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
+  // or the SD library functions will not work. 
+   pinMode(10, OUTPUT);
+   digitalWrite(D1_PIN, HIGH); 
+  if (!SD.begin(chipSelect)) {
+    digitalWrite(D1_PIN, LOW); 
+    Serial.println("initialization failed!");
+    return;
+  }
+  Serial.println("initialization done.");
+  
+}
+
+int readshort(File myFile){
+  int16_t out;
+  char *dat = (char*)&out;
+  dat[0] = myFile.read();
+  dat[1] = myFile.read();
+  return out;
+}
+unsigned long count = 0;
+
+const int RECLEN = 38;
+int gmt_offset(float lat, float lon, bool dst_flag){
+  File latfile;
+  while(lon < 0){
+    lon += 360;
+  }
+  uint32_t lon10 = (uint32_t)round(lon * 10) % 3600;
+  int ilat = (int)round(lat);
+  char filename[8];
+  int offset;
+
+  filename[7] = NULL;
+  uint8_t tens, ones;
+  if(ilat < 0){
+    filename[2] = 'S';
+    ilat = (int)abs(ilat);
+  }
+  else{
+    filename[2] = 'N';
+  }
+  tens = ilat / 10;
+  ones = ilat % 10;
+  filename[0] = '0' + tens;
+  filename[1] = '0' + ones;
+  filename[3] = '.';
+  filename[4] = 'B';
+  filename[5] = 'I';
+  filename[6] = 'N';
+  latfile = SD.open(filename, FILE_READ);
+#ifdef NOTDEF
+  Serial.print(filename);
+  Serial.print(" ");
+  Serial.println(lat);
+  Serial.print(" ");
+  Serial.println(lon);
+  Serial.print(" ");
+  Serial.print(ilat);
+  Serial.print(" ");
+  Serial.println(lon10);
+  latfile.seek(lon10 * RECLEN);
+  for(int i = 0; i < 30; i++){
+    Serial.print((char)latfile.read());
+  }
+  Serial.print("::");
+#endif
+  if(!latfile){
+    Serial.print("NOT OK");
+    while(1) delay(100);
+  }
+  if(dst_flag){
+    latfile.seek(lon10 * RECLEN + 36L);
+  }
+  else{
+    offset = latfile.seek(lon10 * RECLEN + 34L);
+  }
+  offset = readshort(latfile);
+  latfile.close();
+  return offset;
+}
+
+void loop(){
+  myFile.close();
+  for(float lon = -180.; lon < 180.; lon += 10.){
+    Serial.print(lon);
+    Serial.print(" ");
+    Serial.print(gmt_offset(-30, lon, false));
+    Serial.print(" ");
+    Serial.println(gmt_offset(-30, lon, true));
+  }
+  myFile = SD.open("30S.BIN", FILE_READ);
+  if(myFile){
+    Serial.println("OK");
+    for(unsigned long lon10 = 0L; lon10 < 3600; lon10 += 100){
+      Serial.println(lon10 / 10., DEC);
+      myFile.seek(lon10 * RECLEN);
+      for(int i = 0; i < 30; i++){
+	Serial.print((char)myFile.read());
+      }
+      Serial.print(readshort(myFile));
+      Serial.print(" ");
+      Serial.print(readshort(myFile));
+      Serial.print(" ");
+      Serial.print(readshort(myFile));
+      Serial.print(" ");
+      Serial.print(readshort(myFile));
+      Serial.print(" ");
+      Serial.println("");
+    }
+  }
+  else{
+    Serial.println("Not OK");
+  }
+  while(1) delay(100);
+}

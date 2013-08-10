@@ -1,0 +1,54 @@
+from pylab import *
+from scipy import *
+from numpy import *
+
+
+dat = loadtxt('dat.csv', delimiter=',')
+off = dat[:,0]
+on = dat[:,1]
+ns = dat[:,2].astype(int)
+print ns[-1]
+
+figure(1); clf()
+ax = subplot(6, 2,1)
+bytes = []
+msgs = {}
+for i in range(ns[-1]):
+    subplot(6, 2,  i, sharex=ax, sharey=ax)
+    goff = off[where(equal(ns, i))[0]]
+    gon = on[where(equal(ns, i))[0]]
+    group = ravel(zip(goff, gon))
+    ng = len(group)
+    plot(group)
+    bits = greater(goff, 1000) + 0
+    msgs[tuple(bits)] = 1
+    print ''.join(map(str, bits))
+    bits = bits[18:38]
+    bytes.append(bits)
+        # plot(arange(0, ng, 1), group + j/3.)
+    plot(bits)
+    yticks([0, 1.5])
+ylim(0, 1.5)
+xlim(0, len(bits))
+show()
+print len(msgs), len(bytes) / 3.
+vals = []
+for msg in bytes:
+    val = 0
+    for i, bit in enumerate(msg):
+        val += 1<<i * bit
+    print '0x%04x' % val
+    vals.append(val)
+print len(vals), len(set(vals))
+# subplot(211)
+# ylim(0, 5000)
+# subplot(212)
+dat = cumsum(dat)
+N = len(dat)
+vals = ravel(zip(arange(N) % 2, (arange(N) + 1) % 2)) * .99
+
+dat = ravel(zip(dat, dat))
+
+# figure(2); clf()
+# plot(dat, vals)
+# show()
