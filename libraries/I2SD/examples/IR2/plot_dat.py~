@@ -1,0 +1,4 @@
+from pylab import *
+from numpy import *
+
+f = open(
